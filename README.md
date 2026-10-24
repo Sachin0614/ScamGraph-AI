@@ -14,6 +14,7 @@ ScamGraph AI is designed for security researchers, fraud analysts, and cybersecu
 - [x] Logging & error handling
 - [x] Modular architecture for future features
 - [x] Environment-based configuration
+- [x] Offline CSV evidence import with validation and SQLite persistence
 
 ## Planned Phases
 
@@ -141,6 +142,20 @@ The SQLite database includes tables for:
 - **agent_runs** - AI agent execution tracking
 
 ## Development
+
+### Importing Evidence
+
+On the Evidence page, upload a UTF-8 CSV file with `type` and `content` columns.
+The optional `source` column records where each item came from. Supported types
+are Email, Phone Number, Domain, URL, Text Message, Screenshot, Document, and
+Other. Select an existing investigation or create one for the import. All rows
+are validated before anything is saved.
+
+```csv
+type,source,content
+Email,Manual,"Suspicious message from support@example.com"
+URL,Email,"https://example.invalid/login"
+```
 
 ### Code Style
 
