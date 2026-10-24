@@ -1,210 +1,93 @@
-# ScamGraph AI
+# ScamGraph AI — Real-Time Threat Investigation Platform
 
-A modern, dark-themed AI-powered scam investigation platform built with Python and Streamlit.
+An upgraded, AI-powered cyber-threat investigation platform featuring real-time Gmail monitoring (INBOX + SPAM), automated desktop spam notifications with interactive action buttons, and a live forensic threat relationship network graph.
 
-## Overview
+---
 
-ScamGraph AI is designed for security researchers, fraud analysts, and cybersecurity professionals to investigate, visualize, and mitigate scam campaigns. The platform provides a modular architecture ready for AI agent integration, graph-based analysis, and automated evidence collection.
+## 📌 Core Upgraded Features
 
-## Current Status: Phase 1 - Foundation ✅
+### 1. Real-Time Dual-Folder Email Monitoring
+- Continuously monitors the connected Gmail account (`shrishtiraghav66@gmail.com`).
+- **Monitors both INBOX and SPAM folders:** Captures emails that Gmail pre-filters directly into Spam so threats are never missed.
+- Baseline sync at startup ensures historical emails never trigger alerts.
+- Persistent SQLite tracking prevents duplicate notifications across application restarts.
+- Auto-reconnects on network disconnections every 15 seconds without crashing.
 
-- [x] Project structure & configuration management
-- [x] Dark theme dashboard UI with Streamlit
-- [x] SQLite database with investigation schema
-- [x] Logging & error handling
-- [x] Modular architecture for future features
-- [x] Environment-based configuration
-- [x] Offline CSV evidence import with validation and SQLite persistence
+### 2. Desktop Spam Notifications with Action Buttons
+Whenever a new spam email arrives (in either INBOX or SPAM folder):
+- **Title:** `ScamGraph AI — Spam Detected`
+- **Message:** `A suspicious email has been received.`
+- **[View] Button:** Opens the application directly into the comprehensive forensic investigation view for that email.
+- **[Network] Button:** Opens the interactive real-time Threat Relationship Graph centered on that email and its evidence indicators.
+- **Safe Emails:** Simple notification: `📩 You received a new email!`
 
-## Planned Phases
+### 3. Forensic Investigation View ([View] Action)
+- Displays genuine metadata: Sender display name, RFC email address, domain, timestamp, Gmail mailbox folder.
+- Real-time spam score, confidence percentage, and specific matched forensic evidence triggers.
+- Authentic extracted indicators: verified domains, hyperlinks, and phone numbers actually present in the email.
+- **"Open in Gmail"** button to jump directly into the original message in webmail.
+- Zero mock or fabricated sender details.
 
-| Phase | Features |
-|-------|----------|
-| **Phase 2** | Gmail API integration, evidence ingestion pipeline |
-| **Phase 3** | Supervisor Agent with specialist agents (Email, Header, URL, Crypto, Attribution) |
-| **Phase 4** | TinyFish research integration, evidence-based risk scoring |
-| **Phase 5** | Interactive ScamGraph visualization (Plotly/NetworkX) |
-| **Phase 6** | Safe email actions (report phishing, block sender, archive) |
+### 4. Live Threat Relationship Network Graph ([Network] Action)
+- Built with **Cytoscape.js** on a dark cybersecurity dashboard palette (`#030712`, `#0F172A`).
+- **Color Coding:**
+  - 🔴 **Red Nodes (`#EF4444`):** Suspicious indicators supported by evidence (high-risk email, malicious URL/phone).
+  - 🔷 **Cyan Nodes (`#00F0FF`):** Verified evidence, domains, and links.
+  - 🟣 **Purple/Blue Nodes (`#8B5CF6`):** Related entities (e.g. sender email account).
+- **Strict Evidence Rules:**
+  - Zero mock data or placeholder nodes.
+  - Links multiple emails only when real evidence establishes a relationship (same exact sender address, verified shared domain, or matching URL).
+  - If an email has no verified cross-case relationships, displays only its authentic indicators and states: *"No verified relationships found"*.
+  - Interactive Inspector Drawer: Click any node to reveal its type, threat status, evidence source, and relations.
 
-## Quick Start
+---
 
-### Prerequisites
+## 🚀 How to Run ScamGraph AI
 
-- Python 3.10+
-- Windows PowerShell (or any terminal)
+### Option A: 1-Click Batch Runner
+Double-click:
+```text
+start.bat
+```
 
-### Installation
-
+### Option B: Command Line (PowerShell)
 ```powershell
-# Navigate to project directory
-cd E:\ScamGraph_AI
-
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-venv\Scripts\Activate.ps1
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy environment template
-copy .env.example .env
-
-# Run the application
+cd "D:\RBMI\Mini Project\ScamGraph-Combined"
 python run.py
 ```
+The platform will launch and open in your browser at:  
+👉 **`http://localhost:8501`**
 
-The application will open at `http://localhost:8501`
+---
 
-### Alternative Run Command
+## 🧪 Testing the Upgrade
 
-```powershell
-# Direct streamlit command
-streamlit run src\scamgraph\app.py
-```
-
-## Project Structure
-
-```
-ScamGraph_AI/
-├── .env.example          # Environment variables template
-├── .gitignore           # Git ignore rules
-├── requirements.txt     # Python dependencies
-├── run.py              # Application entry point
-├── README.md           # This file
-├── data/               # Database files (gitignored)
-├── logs/               # Application logs (gitignored)
-├── src/
-│   └── scamgraph/
-│       ├── __init__.py
-│       ├── app.py              # Main Streamlit app
-│       ├── config/
-│       │   ├── __init__.py
-│       │   ├── config.py       # Configuration management
-│       │   └── logging.py      # Logging setup
-│       ├── database/
-│       │   ├── __init__.py
-│       │   └── database.py     # SQLite database wrapper
-│       ├── utils/
-│       │   ├── __init__.py
-│       │   └── helpers.py      # Utility functions
-│       └── ui/
-│           ├── __init__.py
-│           ├── theme.py        # Dark theme configuration
-│           ├── sidebar.py      # Navigation sidebar
-│           └── pages/
-│               ├── __init__.py
-│               ├── dashboard.py
-│               ├── investigations.py
-│               ├── evidence.py
-│               ├── graph.py
-│               └── settings.py
-└── tests/              # Test files
-```
-
-## Configuration
-
-All configuration is managed through environment variables. Copy `.env.example` to `.env` and customize:
-
-```bash
-# Application
-APP_NAME=ScamGraph AI
-APP_VERSION=1.0.0
-DEBUG=false
-LOG_LEVEL=INFO
-
-# Database
-DATABASE_PATH=data/scamgraph.db
-
-# Streamlit
-STREAMLIT_SERVER_PORT=8501
-STREAMLIT_SERVER_ADDRESS=localhost
-STREAMLIT_THEME_BASE=dark
-
-# Future Integrations (add when needed)
-# GMAIL_CLIENT_ID=your_client_id
-# GMAIL_CLIENT_SECRET=your_client_secret
-# OPENAI_API_KEY=your_openai_key
-# ANTHROPIC_API_KEY=your_anthropic_key
-# TINYFISH_API_KEY=your_tinyfish_key
-```
-
-## Database Schema
-
-The SQLite database includes tables for:
-
-- **users** - User accounts (future auth)
-- **investigations** - Scam investigation cases
-- **evidence** - Collected artifacts (emails, phones, domains, etc.)
-- **entities** - Graph nodes (extracted indicators)
-- **relationships** - Graph edges (connections between entities)
-- **agent_runs** - AI agent execution tracking
-
-## Development
-
-### Importing Evidence
-
-On the Evidence page, upload a UTF-8 CSV file with `type` and `content` columns.
-The optional `source` column records where each item came from. Supported types
-are Email, Phone Number, Domain, URL, Text Message, Screenshot, Document, and
-Other. Select an existing investigation or create one for the import. All rows
-are validated before anything is saved.
-
-```csv
-type,source,content
-Email,Manual,"Suspicious message from support@example.com"
-URL,Email,"https://example.invalid/login"
-```
-
-### Code Style
+Run the automated verification suite to test all components:
 
 ```powershell
-# Format code
-black src/
-
-# Lint
-ruff check src/
-
-# Type check
-mypy src/
+cd "D:\RBMI\Mini Project\ScamGraph-Combined"
+python tests/test_scamgraph_upgrade.py
 ```
 
-### Testing
-
-```powershell
-# Run tests
-pytest tests/ -v
-
-# With coverage
-pytest tests/ --cov=src/scamgraph --cov-report=html
+Expected output:
+```text
+======================================================================
+      SCAMGRAPH AI - UPGRADE VERIFICATION TEST SUITE
+======================================================================
+[1/5] Testing Forensic Indicator Extractor...
+  [PASSED] Real forensic indicators extracted accurately.
+[2/5] Testing Spam Protection Engine & Uncertainty Safety...
+  [PASSED] Spam email classified: 99.9% (Threshold: 80%)
+  [PASSED] Safe email classified: 97.2% Safe
+[3/5] Testing SQLite Database Forensic Persistence...
+  [PASSED] Saved and verified email record #1 in SQLite.
+[4/5] Testing Threat Relationship Graph Engine...
+  [PASSED] Constructed Threat Graph: 4 nodes, 3 edges.
+  [PASSED] Zero mock data: graph contains only real extracted evidence.
+[5/5] Testing Windows Desktop Toast Notifications (bottom-right)...
+  [PASSED] Fired 'ScamGraph AI — Spam Detected' [View] [Network] toast.
+  [PASSED] Fired 'You received a new email!' safe toast.
+======================================================================
+  ALL VERIFICATION TESTS COMPLETED SUCCESSFULLY!
+======================================================================
 ```
-
-## Security Notes
-
-- **Never commit `.env` file** - It contains API keys and secrets
-- Use strong, unique `SECRET_KEY` in production
-- Rotate API keys regularly
-- Database files in `data/` are gitignored
-- Log files in `logs/` are gitignored
-
-## Disclaimer
-
-This is a development framework. **No real investigation results are generated in Phase 1.** All data shown in the UI is placeholder/sample data for UI demonstration purposes only. Future phases will implement actual AI-powered analysis.
-
-## License
-
-MIT License - See LICENSE file for details.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and linting
-5. Submit a pull request
-
-## Support
-
-- Issues: [GitHub Issues](https://github.com/scamgraph/scamgraph-ai/issues)
-- Documentation: [Wiki](https://github.com/scamgraph/scamgraph-ai/wiki)

@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 # Load .env file if it exists
 load_dotenv()
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
 
 @dataclass
 class DatabaseConfig:
@@ -20,8 +22,11 @@ class DatabaseConfig:
 
     @property
     def full_path(self) -> Path:
-        """Get absolute path to database file."""
-        return Path(self.path).resolve()
+        """Get absolute path to database file securely anchored to project root."""
+        p = Path(self.path)
+        if not p.is_absolute():
+            return (PROJECT_ROOT / p).resolve()
+        return p.resolve()
 
 
 @dataclass
@@ -58,46 +63,34 @@ class GmailConfig:
     @property
     def is_configured(self) -> bool:
         """Check if Gmail credentials are configured."""
-        return all([self.client_id, self.client_secret, self.redirect_uri])
+        return bool(self.client_id and self.client_secret)
 
 
-@dataclass
-class AIConfig:
-    """AI/ML model configuration (for future integration)."""
-    openai_api_key: str | None = os.getenv("OPENAI_API_KEY")
-    anthropic_api_key: str | None = os.getenv("ANTHROPIC_API_KEY")
-
-
-@dataclass
-class TinyFishConfig:
-    """TinyFish research API configuration (for future integration)."""
-    api_key: str | None = os.getenv("TINYFISH_API_KEY")
-
-
-@dataclass
 class Config:
     """Main configuration container."""
-    app: AppConfig
-    database: DatabaseConfig
-    streamlit: StreamlitConfig
-    security: SecurityConfig
-    gmail: GmailConfig
-    ai: AIConfig
-    tinyfish: TinyFishConfig
 
-    @classmethod
-    def load(cls) -> "Config":
-        """Load configuration from environment."""
-        return cls(
-            app=AppConfig(),
-            database=DatabaseConfig(),
-            streamlit=StreamlitConfig(),
-            security=SecurityConfig(),
-            gmail=GmailConfig(),
-            ai=AIConfig(),
-            tinyfish=TinyFishConfig(),
-        )
+    def __init__(self) -> None:
+        self.database = DatabaseConfig()
+        self.app = AppConfig()
+        self.streamlit = StreamlitConfig()
+        self.security = SecurityConfig()
+        self.gmail = GmailConfig()
+
+    @property
+    def is_development(self) -> bool:
+        """Check if running in development mode."""
+        return self.app.debug
+
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production mode."""
+        return not self.app.debug
 
 
-# Global config instance
-config = Config.load()
+# Global configuration instance
+config = Config()
+
+
+def get_config() -> Config:
+    """Get the global configuration instance."""
+    return config

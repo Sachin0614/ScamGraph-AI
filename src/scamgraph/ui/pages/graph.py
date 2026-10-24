@@ -1,177 +1,112 @@
 """
-ScamGraph AI - Graph Visualization Page
-Interactive network graph of scam entities and relationships.
+ScamGraph AI - Threat Relationship Graph Page (Network Action)
+==============================================================
+Interactive real-time threat relationship network powered by Cytoscape.js.
+Strictly renders verified forensic evidence from live Gmail accounts without mock data.
 """
 
-import json
-
 import streamlit as st
+import streamlit.components.v1 as components
 
-from scamgraph.ui.theme import ENTITY_COLORS, get_theme
+from scamgraph.database.database import db
+from scamgraph.services.graph_service import build_threat_graph, generate_cytoscape_html
+from scamgraph.ui.theme import get_theme
 
 
 def render_graph() -> None:
-    """Render the ScamGraph visualization page."""
+    """Render the ScamGraph interactive threat network."""
     theme = get_theme()
 
-    # Page header
+    # Read selected email ID from query parameters or session state
+    params = st.query_params
+    selected_id = None
+    if "id" in params:
+        try:
+            selected_id = int(params.get("id"))
+        except Exception:
+            pass
+
+    if selected_id:
+        st.session_state.selected_email_id = selected_id
+
+    current_email_id = st.session_state.get("selected_email_id")
+
+    # Page Header
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.markdown(
-            f"""
-            <div style="margin-bottom: 1rem;">
-                <h1 style="color: {theme['text_primary']}; margin: 0;">ScamGraph</h1>
-                <p style="color: {theme['text_secondary']}; margin: 0.5rem 0 0;">Visualize entity relationships and attack patterns</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        st.markdown(f"""
+        <div style="margin-bottom: 0.8rem;">
+            <h1 style="color: {theme['text_primary']}; margin: 0; font-size: 24px;">🕸️ Threat Relationship Network</h1>
+            <p style="color: {theme['text_secondary']}; margin: 0.3rem 0 0; font-size: 13.5px;">
+                Evidence-backed indicator relationships and cross-campaign correlations (Live Telemetry)
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
     with col2:
-        st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🔄 Refresh Graph", use_container_width=True):
             st.rerun()
 
-    # Graph controls
-    with st.expander("Graph Controls", expanded=True):
-        ctrl_col1, ctrl_col2, ctrl_col3, ctrl_col4 = st.columns(4)
-        with ctrl_col1:
-            st.selectbox("Layout", ["Force Directed", "Hierarchical", "Circular", "Grid"])
-        with ctrl_col2:
-            filter_type = st.multiselect(
-                "Entity Types",
-                list(ENTITY_COLORS.keys()),
-                default=list(ENTITY_COLORS.keys()),
-            )
-        with ctrl_col3:
-            min_confidence = st.slider("Min Confidence", 0.0, 1.0, 0.5, 0.1)
-        with ctrl_col4:
-            st.number_input("Max Nodes", 10, 500, 100, 10)
+    # Email Selector Bar
+    recent_emails = db.list_email_investigations(limit=30)
+    email_options = {None: "🌐 Entire Threat Network (Recent Cases)"}
+    for em in recent_emails:
+        badge = "🔴 SPAM" if em["is_spam"] else "🟢 SAFE"
+        sub = em["subject"] or "No Subject"
+        disp = sub[:35] + "..." if len(sub) > 35 else sub
+        email_options[em["id"]] = f"Case #{em['id']} | {badge} | {disp} ({em['sender_email']})"
 
-    # Placeholder for graph visualization
-    st.markdown("### Network Graph")
+    current_index = 0
+    if current_email_id in email_options:
+        current_index = list(email_options.keys()).index(current_email_id)
 
-    # Sample graph data for demonstration
-    sample_nodes = [
-        {"id": "1", "label": "attacker@evil.com", "type": "email", "risk": 95},
-        {"id": "2", "label": "victim@company.com", "type": "email", "risk": 10},
-        {"id": "3", "label": "phishing-site.com", "type": "domain", "risk": 90},
-        {"id": "4", "label": "+1 (555) 123-4567", "type": "phone", "risk": 80},
-        {"id": "5", "label": "fake-support@scam.net", "type": "email", "risk": 85},
-        {"id": "6", "label": "malware.exe", "type": "file", "risk": 98},
-        {"id": "7", "label": "192.168.1.100", "type": "ip", "risk": 70},
-        {"id": "8", "label": "bitcoin:1A2b3C...", "type": "wallet", "risk": 60},
-    ]
+    selected_target = st.selectbox(
+        "Focus Investigation Case:",
+        options=list(email_options.keys()),
+        format_func=lambda x: email_options.get(x, "Unknown"),
+        index=current_index
+    )
 
-    sample_edges = [
-        {"source": "1", "target": "2", "type": "sent_to", "confidence": 0.95},
-        {"source": "1", "target": "3", "type": "hosted_on", "confidence": 0.90},
-        {"source": "3", "target": "4", "type": "registered_to", "confidence": 0.75},
-        {"source": "1", "target": "5", "type": "associated_with", "confidence": 0.85},
-        {"source": "5", "target": "6", "type": "delivered", "confidence": 0.80},
-        {"source": "6", "target": "7", "type": "connected_to", "confidence": 0.70},
-        {"source": "2", "target": "8", "type": "paid_to", "confidence": 0.60},
-    ]
+    if selected_target != current_email_id:
+        st.session_state.selected_email_id = selected_target
+        st.rerun()
 
-    # Filter by entity types
-    filtered_nodes = [n for n in sample_nodes if n["type"] in filter_type]
-    filtered_edges = [e for e in sample_edges if e["confidence"] >= min_confidence]
+    # Build Authentic Graph Data (Zero mock data!)
+    graph_data = build_threat_graph(email_id=selected_target)
 
-    # Display as interactive table for now (Plotly network graph in Phase 2)
-    tab1, tab2 = st.tabs(["📊 Network View", "📋 Data Tables"])
+    # Status & Context Bar
+    if not graph_data.get("is_empty"):
+        has_cross = graph_data.get("has_cross_case_relationships", False)
+        t_nodes = graph_data.get("total_nodes", 0)
+        t_edges = graph_data.get("total_edges", 0)
 
-    with tab1:
-        st.info("Interactive Plotly network graph coming in Phase 2. Showing data preview below.")
+        meta_c1, meta_c2, meta_c3 = st.columns(3)
+        with meta_c1:
+            st.metric("Graph Nodes", t_nodes)
+        with meta_c2:
+            st.metric("Evidence Edges", t_edges)
+        with meta_c3:
+            status_text = "🔗 Multi-Case Syndicate" if has_cross else "🟢 Isolated Single Case"
+            st.metric("Correlation Status", status_text)
 
-        # Show graph stats
-        stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
-        with stat_col1:
-            st.metric("Nodes", len(filtered_nodes))
-        with stat_col2:
-            st.metric("Edges", len(filtered_edges))
-        with stat_col3:
-            high_risk = sum(1 for n in filtered_nodes if n["risk"] >= 70)
-            st.metric("High Risk Nodes", high_risk)
-        with stat_col4:
-            avg_risk = sum(n["risk"] for n in filtered_nodes) / len(filtered_nodes) if filtered_nodes else 0
-            st.metric("Avg Risk Score", f"{avg_risk:.0f}")
+        if not has_cross and selected_target:
+            st.info("ℹ️ **No verified relationships found:** This email does not share an exact sender address, domain, or URL with any other recorded case. Showing verified indicators only.")
 
-        # Node legend
-        st.markdown("#### Entity Types")
-        legend_cols = st.columns(len(ENTITY_COLORS))
-        for idx, (etype, color) in enumerate(ENTITY_COLORS.items()):
-            with legend_cols[idx % len(legend_cols)]:
-                count = sum(1 for n in filtered_nodes if n["type"] == etype)
-                if count > 0:
-                    st.markdown(
-                        f"""
-                        <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: {theme['surface']}; border-radius: 6px; border: 1px solid {theme['border']};">
-                            <span style="width: 12px; height: 12px; background: {color}; border-radius: 50%;"></span>
-                            <span style="font-size: 0.85rem;">{etype.title()} ({count})</span>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+    # Render Interactive Cytoscape.js Component
+    cytoscape_html = generate_cytoscape_html(graph_data, height=620)
+    components.html(cytoscape_html, height=640, scrolling=False)
 
-    with tab2:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**Nodes (Entities)**")
-            st.dataframe(
-                filtered_nodes,
-                column_config={
-                    "id": "ID",
-                    "label": "Label",
-                    "type": "Type",
-                    "risk": st.column_config.ProgressColumn("Risk", min_value=0, max_value=100),
-                },
-                hide_index=True,
-                use_container_width=True,
-            )
-
-        with col2:
-            st.markdown("**Edges (Relationships)**")
-            st.dataframe(
-                filtered_edges,
-                column_config={
-                    "source": "Source",
-                    "target": "Target",
-                    "type": "Relationship",
-                    "confidence": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=1),
-                },
-                hide_index=True,
-                use_container_width=True,
-            )
-
-    # Export options
-    st.divider()
-    st.markdown("### Export")
-    exp_col1, exp_col2, exp_col3 = st.columns(3)
-    with exp_col1:
-        if st.button("📥 Export JSON", use_container_width=True):
-            graph_data = {"nodes": filtered_nodes, "edges": filtered_edges}
-            st.download_button(
-                "Download Graph JSON",
-                data=json.dumps(graph_data, indent=2),
-                file_name="scamgraph_export.json",
-                mime="application/json",
-            )
-    with exp_col2:
-        if st.button("📊 Export CSV (Nodes)", use_container_width=True):
-            import pandas as pd
-            df = pd.DataFrame(filtered_nodes)
-            st.download_button(
-                "Download Nodes CSV",
-                data=df.to_csv(index=False),
-                file_name="scamgraph_nodes.csv",
-                mime="text/csv",
-            )
-    with exp_col3:
-        if st.button("🔗 Export CSV (Edges)", use_container_width=True):
-            import pandas as pd
-            df = pd.DataFrame(filtered_edges)
-            st.download_button(
-                "Download Edges CSV",
-                data=df.to_csv(index=False),
-                file_name="scamgraph_edges.csv",
-                mime="text/csv",
-            )
+    # Detailed Correlated Cases Table (if multiple cases connected)
+    if selected_target:
+        correlated_cases = db.get_correlated_emails(selected_target)
+        if correlated_cases:
+            st.markdown("### 🔗 Correlated Evidence Across Investigations")
+            st.caption("These cases were linked exclusively due to matching sender addresses or shared infrastructure:")
+            for c_em in correlated_cases:
+                with st.expander(f"Case #{c_em['id']}: {c_em['subject']} (From: {c_em['sender_email']})"):
+                    st.write(f"**Verdict:** {'⚠️ SPAM' if c_em['is_spam'] else '📩 SAFE'} ({c_em['confidence']}%)")
+                    st.write(f"**Domain:** `{c_em['sender_domain']}`")
+                    st.write(f"**Received:** {c_em['received_at']}")
+                    if st.button("Inspect This Correlated Case", key=f"corr_{c_em['id']}"):
+                        st.session_state.selected_email_id = c_em['id']
+                        st.session_state.current_page = "investigations"
+                        st.rerun()
