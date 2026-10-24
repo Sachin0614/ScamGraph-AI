@@ -4,7 +4,7 @@ SQLite database setup and connection management using Python's built-in sqlite3.
 """
 
 import sqlite3
-from collections.abc import Generator
+from collections.abc import Generator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -190,6 +190,66 @@ class Database:
         """
         with self.get_connection() as conn:
             return conn.execute(query, params).fetchall()
+
+    def list_investigations(self) -> list[sqlite3.Row]:
+        """Return investigations in most-recently-created order."""
+        return self.fetch_all(
+            "SELECT id, title FROM investigations ORDER BY created_at DESC, id DESC"
+        )
+
+    def import_evidence(
+        self,
+        records: Sequence[Mapping[str, str | None]],
+        *,
+        investigation_id: int | None = None,
+        new_investigation_title: str | None = None,
+    ) -> tuple[int, int]:
+        """Store an evidence batch, optionally creating its investigation atomically."""
+        if not records:
+            raise ValueError("At least one evidence record is required.")
+        if investigation_id is None:
+            if not new_investigation_title or not new_investigation_title.strip():
+                raise ValueError(
+                    "Choose an existing investigation or provide a new investigation title."
+                )
+            new_investigation_title = new_investigation_title.strip()
+        elif new_investigation_title is not None:
+            raise ValueError(
+                "Choose an existing investigation or provide a new investigation title."
+            )
+
+        with self.get_connection() as conn:
+            if investigation_id is None:
+                cursor = conn.execute(
+                    "INSERT INTO investigations (title) VALUES (?)",
+                    (new_investigation_title,),
+                )
+                created_id = cursor.lastrowid
+                if created_id is None:
+                    raise RuntimeError("SQLite did not return the new investigation ID.")
+                investigation_id = created_id
+            elif conn.execute(
+                "SELECT 1 FROM investigations WHERE id = ?", (investigation_id,)
+            ).fetchone() is None:
+                raise ValueError(f"Investigation {investigation_id} does not exist.")
+
+            conn.executemany(
+                """
+                INSERT INTO evidence (investigation_id, type, source, content)
+                VALUES (?, ?, ?, ?)
+                """,
+                [
+                    (
+                        investigation_id,
+                        record["type"],
+                        record.get("source"),
+                        record["content"],
+                    )
+                    for record in records
+                ],
+            )
+
+        return investigation_id, len(records)
 
 
 # Global database instance
